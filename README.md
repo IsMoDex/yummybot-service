@@ -1,4 +1,8 @@
 # 🧠🍽️ YummyBot
+[![License: MIT](https://img.shields.io/github/license/IsMoDex/YummyBot)](https://opensource.org/licenses/MIT)
+[![Release](https://img.shields.io/github/v/release/IsMoDex/YummyBot?include_prereleases)](https://github.com/IsMoDex/YummyBot/releases)
+[![Code Size](https://img.shields.io/github/languages/code-size/IsMoDex/YummyBot.svg)](https://github.com/IsMoDex/YummyBot)
+[![Repo Stars](https://img.shields.io/github/stars/IsMoDex/YummyBot?style=social)](https://github.com/IsMoDex/YummyBot/stargazers)
 
 YummyBot — это Telegram-бот, который помогает пользователю распознать содержимое холодильника по фото и предлагает рецепты из доступных продуктов. Проект разработан для дипломной работы.
 
