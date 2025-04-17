@@ -2,6 +2,7 @@ import { Context } from 'grammy';
 import {
     getRecipeById,
     saveFavoriteRecipe,
+    removeFavoriteRecipe
 } from '../database/queries/recipe';
 
 export async function showRecipeAction(ctx: Context) {
@@ -52,5 +53,28 @@ export async function saveRecipeAction(ctx: Context) {
         await ctx.answerCallbackQuery({ text: 'Уже в избранном', show_alert: false });
     } else {
         await ctx.answerCallbackQuery({ text: 'Ошибка при сохранении', show_alert: true });
+    }
+}
+
+/**
+ * callback data: "delete_42"
+ */
+export async function deleteRecipeAction(ctx: Context) {
+    const data = ctx.callbackQuery?.data;
+    if (!data) return;
+    const [, idStr] = data.split('_');
+    const recipeId = Number(idStr);
+    if (isNaN(recipeId)) return;
+
+    const telegramId = ctx.from?.id;
+    if (!telegramId) return;
+
+    const result = await removeFavoriteRecipe(telegramId, recipeId);
+    if (result.success) {
+        // удаляем само сообщение‑карточку из чата
+        await ctx.deleteMessage();
+        await ctx.answerCallbackQuery({ text: 'Рецепт удалён из избранного', show_alert: false });
+    } else {
+        await ctx.answerCallbackQuery({ text: 'Не удалось удалить рецепт', show_alert: true });
     }
 }

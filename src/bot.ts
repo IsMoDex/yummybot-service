@@ -6,7 +6,8 @@ import {productsCommand} from "./commands/products";
 import {addCommand} from "./commands/add";
 import {removeCommand} from "./commands/remove";
 import {recipesCommand} from "./commands/recipes";
-import {saveRecipeAction, showRecipeAction} from "./commands/recipeActions";
+import {deleteRecipeAction, saveRecipeAction, showRecipeAction} from "./commands/recipeActions";
+import {favoritesCommand} from "./commands/favorites";
 
 config(); // Загружаем .env
 
@@ -21,6 +22,8 @@ bot.command('recipes', recipesCommand);
 
 bot.callbackQuery(/^show_\d+$/, showRecipeAction);
 bot.callbackQuery(/^save_\d+$/, saveRecipeAction);
+bot.command('favorites', favoritesCommand);
+bot.callbackQuery(/^delete_\d+$/, deleteRecipeAction);
 
 // Запуск
 bot.start();
