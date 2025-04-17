@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int              @id @default(autoincrement())
+  telegramId      BigInt           @unique
+  username        String?
+  firstName       String?
+  languageCode    String?
+  createdAt       DateTime         @default(now())
+  favoriteRecipes FavoriteRecipe[]
+  uploads         ImageUpload[]
+  userProducts    UserProduct[]
+}
+
+model Product {
+  id          String            @id // machine-readable ID (например, "banana")
+  userEntries UserProduct[]
+  inRecipes   RecipeProduct[]
+  translations ProductTranslation[]
+}
+
+model ProductTranslation {
+  id         Int      @id @default(autoincrement())
+  productId  String
+  language   String   // 'ru', 'en', 'fr', и т.д.
+  name       String   // Перевод названия
+  emoji      String?  // Эмодзи
+
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@unique([productId, language])
+}
+
+model UserProduct {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId], name: "userId_productId")
+}
+
+model Recipe {
+  id              Int              @id @default(autoincrement())
+  title           String
+  description     String?
+  steps           String
+  createdAt       DateTime         @default(now())
+  favoriteByUsers FavoriteRecipe[]
+  ingredients     RecipeProduct[]
+}
+
+model RecipeProduct {
+  id        Int     @id @default(autoincrement())
+  recipeId  Int
+  productId String
+
+  product   Product @relation(fields: [productId], references: [id])
+  recipe    Recipe  @relation(fields: [recipeId], references: [id])
+}
+
+model FavoriteRecipe {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  recipeId Int
+  addedAt  DateTime @default(now())
+
+  recipe   Recipe @relation(fields: [recipeId], references: [id])
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, recipeId])
+}
+
+model ImageUpload {
+  id        Int      @id @default(autoincrement())
+  imageUrl  String
+  userId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}

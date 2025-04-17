@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES6",                          // Целевая версия JavaScript
+    "module": "commonjs",                     // Модульная система
+    "strict": true,                           // Включить строгий режим
+    "esModuleInterop": true,                  // Включить совместимость с ES модулями
+    "skipLibCheck": true,                     // Пропустить проверку типов в файлах .d.ts
+    "forceConsistentCasingInFileNames": true, // Принудительное соблюдение регистра в именах файлов
+    "outDir": "./dist",                       // Директория для скомпилированных файлов
+    "rootDir": "./src",                       // Корневая директория исходных файлов
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*"                                 // Включить все файлы в директории src
+  ],
+  "exclude": [
+    "node_modules",                            // Исключить директорию node_modules
+    "**/*.spec.ts"                            // Исключить файлы тестов
+  ]
+}

@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int              @id @default(autoincrement())
+  telegramId      BigInt           @unique
+  username        String?
+  firstName       String?
+  languageCode    String?
+  createdAt       DateTime         @default(now())
+  favoriteRecipes FavoriteRecipe[]
+  uploads         ImageUpload[]
+  userProducts    UserProduct[]
+}
+
+model Product {
+  id          Int             @id @default(autoincrement())
+  name        String          @unique
+  inRecipes   RecipeProduct[]
+  userEntries UserProduct[]
+}
+
+model UserProduct {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, productId], name: "userId_productId")
+}
+
+model Recipe {
+  id              Int              @id @default(autoincrement())
+  title           String
+  description     String?
+  steps           String
+  createdAt       DateTime         @default(now())
+  favoriteByUsers FavoriteRecipe[]
+  ingredients     RecipeProduct[]
+}
+
+model RecipeProduct {
+  id        Int     @id @default(autoincrement())
+  recipeId  Int
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  recipe    Recipe  @relation(fields: [recipeId], references: [id])
+}
+
+model FavoriteRecipe {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  recipeId Int
+  addedAt  DateTime @default(now())
+  recipe   Recipe   @relation(fields: [recipeId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, recipeId])
+}
+
+model ImageUpload {
+  id        Int      @id @default(autoincrement())
+  imageUrl  String
+  userId    Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}

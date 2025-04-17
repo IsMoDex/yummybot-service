@@ -1,0 +1,19 @@
+import { Bot } from 'grammy';
+import { config } from 'dotenv';
+import { startCommand } from './commands/start';
+import { helpCommand } from './commands/help';
+import {productsCommand} from "./commands/products";
+import {addCommand} from "./commands/add";
+
+config(); // Загружаем .env
+
+const bot = new Bot(process.env.BOT_TOKEN!);
+
+bot.command('start', startCommand);
+bot.command('help', helpCommand);
+bot.command('products', productsCommand);
+bot.command('add', addCommand);
+
+// Запуск
+bot.start();
+console.log('🤖 Бот запущен!');
