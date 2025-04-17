@@ -112,3 +112,23 @@ export async function removeProductFromUser(telegramId: number, productId: strin
 
     return { success: true };
 }
+
+/**
+ * Удаляет все продукты пользователя.
+ */
+export async function clearUserProducts(telegramId: number): Promise<number> {
+    // Найти внутренний userId
+    const user = await prisma.user.findUnique({
+        where: { telegramId },
+        select: { id: true },
+    });
+    if (!user) return 0;
+
+    // Удалить все UserProduct для этого userId
+    const result = await prisma.userProduct.deleteMany({
+        where: { userId: user.id },
+    });
+
+    // result.count — число удалённых записей
+    return result.count;
+}
