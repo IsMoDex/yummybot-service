@@ -55,11 +55,12 @@ npm run dev
 ---
 ## 📦 .env пример
 ### Создай файл .env и добавь:
-
+```
 BOT_TOKEN=your_telegram_bot_token
 DATABASE_URL="file:./dev.db"
 NEURAL_API_URL=https://your-neural-api.com/recognize
 NEURAL_API_KEY=your_api_key_if_needed
+```
 ---
 ## 💡 Возможности
 📸 Загрузка фото холодильника
