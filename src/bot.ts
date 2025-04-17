@@ -11,6 +11,7 @@ import { uploadCommand }   from './commands/upload';
 import { recipesCommand }  from './commands/recipes';
 import { favoritesCommand }from './commands/favorites';
 import { showRecipeAction, saveRecipeAction, deleteRecipeAction } from './commands/recipeActions';
+import {applyAddAction, applyReplaceAction} from "./commands/uploadActions";
 
 config();
 const bot = new Bot<Context>(process.env.BOT_TOKEN!);
@@ -31,6 +32,8 @@ bot.command('favorites',favoritesCommand);
 bot.callbackQuery(/^show_\d+$/,   showRecipeAction);
 bot.callbackQuery(/^save_\d+$/,   saveRecipeAction);
 bot.callbackQuery(/^delete_\d+$/, deleteRecipeAction);
+bot.callbackQuery('apply_add',    applyAddAction);
+bot.callbackQuery('apply_replace',applyReplaceAction);
 
 // глобальный обработчик ошибок
 bot.catch(async errCtx => {
