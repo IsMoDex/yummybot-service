@@ -14,6 +14,7 @@ import { clearCommand }    from './commands/clear';
 import { uploadCommand }   from './commands/upload';
 import { recipesCommand }  from './commands/recipes';
 import { favoritesCommand }from './commands/favorites';
+import menu from "./commands/menu";
 
 // — inline из recipeActions и uploadActions —
 import {
@@ -53,6 +54,12 @@ bot.command('upload',    async ctx => {
 bot.on('message:photo',  uploadCommand);
 bot.command('recipes',   recipesCommand);
 bot.command('favorites', favoritesCommand);
+bot.command('menu', menu);
+
+// === Обработка кнопок клавиатуры ===
+bot.hears('🍎 Продукты', productsCommand);
+bot.hears('🍲 Рецепты', recipesCommand);
+bot.hears('📖 Сохраненные рецепты', favoritesCommand);
 
 // === Inline‑действия для рецептов и загрузки ===
 bot.callbackQuery(/^show_\d+$/,   showRecipeAction);
