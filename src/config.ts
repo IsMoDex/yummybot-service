@@ -7,7 +7,8 @@ dotenv.config();
 // Обязательные переменные
 assert(process.env.BOT_TOKEN, "❌ BOT_TOKEN is required in .env");
 assert(process.env.DATABASE_URL, "❌ DATABASE_URL is required in .env");
-assert(process.env.NEURAL_API_URL, "❌ NEURAL_API_URL is required in .env");
+assert(process.env.ROBOFLOW_MODEL_URL, "❌ ROBOFLOW_MODEL_URL is required in .env");
+assert(process.env.ROBOFLOW_API_KEY, "❌ ROBOFLOW_API_KEY is required in .env");
 
 export const config = {
     botToken: process.env.BOT_TOKEN as string,
