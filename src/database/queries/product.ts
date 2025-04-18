@@ -132,3 +132,21 @@ export async function clearUserProducts(telegramId: number): Promise<number> {
     // result.count — число удалённых записей
     return result.count;
 }
+
+/**
+ * Возвращает список productId, которые уже есть у данного telegramId.
+ */
+export async function getUserProductIds(
+    telegramId: number
+): Promise<string[]> {
+    const user = await prisma.user.findUnique({
+        where: { telegramId },
+        select: { id: true },
+    });
+    if (!user) return [];
+    const ups = await prisma.userProduct.findMany({
+        where: { userId: user.id },
+        select: { productId: true },
+    });
+    return ups.map((u) => u.productId);
+}

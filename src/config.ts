@@ -15,3 +15,5 @@ export const config = {
     neuralApiUrl: process.env.NEURAL_API_URL as string,
     neuralApiKey: process.env.NEURAL_API_KEY ?? "", // необязательный ключ
 };
+
+export const PRODUCT_PAGE_SIZE = 5;

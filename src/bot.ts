@@ -1,6 +1,10 @@
-import { Bot, Context } from 'grammy';
-import { config } from 'dotenv';
+// src/bot.ts
 
+import { Bot } from 'grammy';
+import { sessionMiddleware } from './middleware/session';
+import { MyContext } from './types';
+
+// — команды —
 import { startCommand }    from './commands/start';
 import { helpCommand }     from './commands/help';
 import { productsCommand } from './commands/products';
@@ -10,32 +14,61 @@ import { clearCommand }    from './commands/clear';
 import { uploadCommand }   from './commands/upload';
 import { recipesCommand }  from './commands/recipes';
 import { favoritesCommand }from './commands/favorites';
-import { showRecipeAction, saveRecipeAction, deleteRecipeAction } from './commands/recipeActions';
-import {applyAddAction, applyReplaceAction} from "./commands/uploadActions";
 
-config();
-const bot = new Bot<Context>(process.env.BOT_TOKEN!);
+// — inline из recipeActions и uploadActions —
+import {
+    showRecipeAction,
+    saveRecipeAction,
+    deleteRecipeAction,
+} from './commands/recipeActions';
+import {
+    applyAddAction,
+    applyReplaceAction,
+} from './commands/uploadActions';
 
-// команды
-bot.command('start',    startCommand);
-bot.command('help',     helpCommand);
-bot.command('products', productsCommand);
-bot.command('add',      addCommand);
-bot.command('remove',   removeCommand);
-bot.command('clear',    clearCommand);
-bot.command('upload',   async ctx => { await ctx.reply('❗ Пожалуйста, отправьте фотографию содержимого холодильника.'); });
-bot.on('message:photo', uploadCommand);
-bot.command('recipes',  recipesCommand);
-bot.command('favorites',favoritesCommand);
+// — prompt‑режим для add/remove продуктов —
+import {
+    promptAddAction,
+    promptRemoveAction,
+    productPromptTextHandler,
+    productPromptPageHandler,
+    productPromptFinalHandler,
+} from './commands/productPromptActions';
 
-// inline‑действия
+const bot = new Bot<MyContext>(process.env.BOT_TOKEN!);
+
+// Подключаем сессию _до_ всех хендлеров
+bot.use(sessionMiddleware);
+
+// === Регистрация команд ===
+bot.command('start',     startCommand);
+bot.command('help',      helpCommand);
+bot.command('products',  productsCommand);
+bot.command('add',       addCommand);
+bot.command('remove',    removeCommand);
+bot.command('clear',     clearCommand);
+bot.command('upload',    async ctx => {
+    await ctx.reply('❗ Пожалуйста, отправьте фотографию содержимого холодильника.');
+});
+bot.on('message:photo',  uploadCommand);
+bot.command('recipes',   recipesCommand);
+bot.command('favorites', favoritesCommand);
+
+// === Inline‑действия для рецептов и загрузки ===
 bot.callbackQuery(/^show_\d+$/,   showRecipeAction);
 bot.callbackQuery(/^save_\d+$/,   saveRecipeAction);
 bot.callbackQuery(/^delete_\d+$/, deleteRecipeAction);
-bot.callbackQuery('apply_add',    applyAddAction);
-bot.callbackQuery('apply_replace',applyReplaceAction);
+bot.callbackQuery('apply_add',     applyAddAction);
+bot.callbackQuery('apply_replace', applyReplaceAction);
 
-// глобальный обработчик ошибок
+// === Prompt‑режим для add/remove продуктов ===
+bot.callbackQuery('prompt_add',    promptAddAction);
+bot.callbackQuery('prompt_remove', promptRemoveAction);
+bot.on('message:text',             productPromptTextHandler);
+bot.callbackQuery(/^page_(add|remove)_(\d+)$/, productPromptPageHandler);
+bot.callbackQuery(/^(add|remove)_.+$/,        productPromptFinalHandler);
+
+// === Глобальный catch ===
 bot.catch(async errCtx => {
     console.error('Bot error:', errCtx.error);
     try {
@@ -43,5 +76,6 @@ bot.catch(async errCtx => {
     } catch {}
 });
 
+// === Запуск бота ===
 bot.start();
 console.log('🤖 Бот запущен!');
