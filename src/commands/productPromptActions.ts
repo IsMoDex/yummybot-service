@@ -1,5 +1,3 @@
-// src/commands/productPromptActions.ts
-
 import { MyContext } from '../types'
 import { findUser, createUser } from '../database/queries/user'
 import {
@@ -16,7 +14,9 @@ import {
 import { InlineKeyboard, GrammyError } from 'grammy'
 import { PRODUCT_PAGE_SIZE } from '../config'
 
-/** 1) Входим в режим “Добавить” */
+/**
+ * Вход в prompt‑режим добавления
+ */
 export async function promptAddAction(ctx: MyContext) {
     await ctx.answerCallbackQuery()
     ctx.session.action = 'add'
@@ -25,7 +25,9 @@ export async function promptAddAction(ctx: MyContext) {
     return ctx.reply('Введите название продукта для добавления:')
 }
 
-/** 2) Входим в режим “Убрать” */
+/**
+ * Вход в prompt‑режим удаления
+ */
 export async function promptRemoveAction(ctx: MyContext) {
     await ctx.answerCallbackQuery()
     ctx.session.action = 'remove'
@@ -34,7 +36,9 @@ export async function promptRemoveAction(ctx: MyContext) {
     return ctx.reply('Введите название продукта для удаления:')
 }
 
-/** 3) Обработка текста в режиме prompt */
+/**
+ * Обработка текста в prompt‑режиме
+ */
 export async function productPromptTextHandler(ctx: MyContext) {
     const action = ctx.session.action
     if (!action) return
@@ -43,16 +47,15 @@ export async function productPromptTextHandler(ctx: MyContext) {
     const lang = ctx.from?.language_code ?? 'ru'
     const telegramId = ctx.from!.id
 
-    // Убедимся, что пользователь в БД
-    let userRec = await findUser(telegramId)
-    if (!userRec) {
-        userRec = await createUser(ctx)
-        if (!userRec) {
+    let user = await findUser(telegramId)
+    if (!user) {
+        user = await createUser(ctx)
+        if (!user) {
             return ctx.reply('❌ Не удалось создать пользователя, выполните /start')
         }
     }
 
-    // 3.1) Точное совпадение
+    // Попытка точного совпадения
     const exact = await findExactTranslations(lang, text)
     if (exact.length === 1) {
         const { productId, name, emoji } = exact[0]
@@ -76,39 +79,31 @@ export async function productPromptTextHandler(ctx: MyContext) {
             }
         }
 
-        // Обновляем последний список /products
+        // Обновляем список /products
         if (ctx.session.lastProductsMessage) {
             await renderProductsAndKeyboard(ctx)
         }
+
         delete ctx.session.action
         delete ctx.session.lastResults
         delete ctx.session.page
         return
     }
 
-    // 3.2) Поиск похожих по подстроке
+    // Поиск похожих
     let similar = await searchTranslations(lang, text)
+    const userIds = await getUserProductIds(telegramId)
 
     if (action === 'add') {
-        // для add — показываем только те, которых нет в списке
-        const userIds = await getUserProductIds(telegramId)
         similar = similar.filter((t) => !userIds.includes(t.productId))
         if (!similar.length) {
             return ctx.reply('✅ Все найденные продукты уже есть в вашем списке.')
         }
-    }
-
-    if (action === 'remove') {
-        // для remove — только те, что уже есть
-        const userIds = await getUserProductIds(telegramId)
+    } else {
         similar = similar.filter((t) => userIds.includes(t.productId))
         if (!similar.length) {
-            return ctx.reply('❌ Нет похожих продуктов для удаления')
+            return ctx.reply('❌ Нет похожих продуктов для удаления.')
         }
-    }
-
-    if (!similar.length) {
-        return ctx.reply('❌ Ничего не найдено. Попробуйте другое название.')
     }
 
     ctx.session.lastResults = similar
@@ -116,7 +111,9 @@ export async function productPromptTextHandler(ctx: MyContext) {
     return sendPage(ctx)
 }
 
-/** 4) Обработка пагинации */
+/**
+ * Обработка пагинации
+ */
 export async function productPromptPageHandler(ctx: MyContext) {
     const data = ctx.callbackQuery?.data
     if (!data) return
@@ -127,7 +124,9 @@ export async function productPromptPageHandler(ctx: MyContext) {
     return sendPage(ctx)
 }
 
-/** 5) Финальный обработчик add_<id> / remove_<id> */
+/**
+ * Финальный обработчик add_<id> / remove_<id>
+ */
 export async function productPromptFinalHandler(ctx: MyContext) {
     const data = ctx.callbackQuery?.data
     if (!data) return
@@ -164,26 +163,123 @@ export async function productPromptFinalHandler(ctx: MyContext) {
         }
     }
 
+    // Удаляем нажатый продукт из результатов
+    removeFromLastResults(ctx, productId)
+    // Обновляем inline‑клавиатуру похожих
+    await updateSimilarKeyboard(ctx)
+
     // Обновляем /products
     if (ctx.session.lastProductsMessage) {
         await renderProductsAndKeyboard(ctx)
     }
-
-    delete ctx.session.action
-    delete ctx.session.lastResults
-    delete ctx.session.page
 }
 
-/** Рендер и правка последнего списка /products */
+/**
+ * Удаляет productId из session.lastResults и корректирует страницу
+ */
+function removeFromLastResults(ctx: MyContext, productId: string) {
+    if (!ctx.session.lastResults) return
+    ctx.session.lastResults = ctx.session.lastResults.filter(
+        (t) => t.productId !== productId
+    )
+    const total = ctx.session.lastResults.length
+    const maxPage = Math.floor((total - 1) / PRODUCT_PAGE_SIZE)
+    if ((ctx.session.page ?? 0) > maxPage) {
+        ctx.session.page = maxPage
+    }
+}
+
+/**
+ * Обновляет inline‑клавиатуру похожих на месте
+ */
+async function updateSimilarKeyboard(ctx: MyContext) {
+    const results = ctx.session.lastResults ?? []
+    const page = ctx.session.page ?? 0
+    const start = page * PRODUCT_PAGE_SIZE
+    const slice = results.slice(start, start + PRODUCT_PAGE_SIZE)
+
+    // Если список пуст — заменяем текст
+    if (results.length === 0) {
+        try {
+            await ctx.editMessageText(
+                '✅ Все предложенные продукты обработаны.',
+                { reply_markup: undefined }
+            )
+        } catch (err: any) {
+            if (
+                !(err instanceof GrammyError &&
+                    err.error_code === 400 &&
+                    err.description?.includes('message is not modified'))
+            ) {
+                throw err
+            }
+        }
+        return
+    }
+
+    const kb = new InlineKeyboard()
+    slice.forEach((item) => {
+        const label = `${item.emoji ?? ''} ${item.name}`
+        kb.text(
+            ctx.session.action === 'add' ? `➕ ${label}` : `➖ ${label}`,
+            `${ctx.session.action}_${item.productId}`
+        ).row()
+    })
+
+    if (page > 0) {
+        kb.text('◀️ Назад', `page_${ctx.session.action}_${page - 1}`)
+    }
+    if (start + PRODUCT_PAGE_SIZE < results.length) {
+        kb.text('Вперёд ▶️', `page_${ctx.session.action}_${page + 1}`)
+    }
+
+    try {
+        await ctx.editMessageReplyMarkup({ reply_markup: kb })
+    } catch (err: any) {
+        if (
+            !(err instanceof GrammyError &&
+                err.error_code === 400 &&
+                err.description?.includes('message is not modified'))
+        ) {
+            throw err
+        }
+    }
+}
+
+/**
+ * Рендер и правка последнего списка /products
+ */
 async function renderProductsAndKeyboard(ctx: MyContext) {
     const { chat, message_id } = ctx.session.lastProductsMessage!
     const telegramId = ctx.from!.id
     const lang = ctx.from?.language_code || 'ru'
 
     const products = await getUserProducts(telegramId, lang)
+    // Если пуст
+    if (products.length === 0) {
+        const kbEmpty = new InlineKeyboard().text('➕ Добавить', 'prompt_add')
+        try {
+            await ctx.api.editMessageText(
+                chat,
+                message_id,
+                '⚠️ Вы удалили все продукты. Добавьте новые через "➕ Добавить".',
+                { reply_markup: kbEmpty }
+            )
+        } catch (err: any) {
+            if (
+                !(err instanceof GrammyError &&
+                    err.error_code === 400 &&
+                    err.description?.includes('message is not modified'))
+            ) {
+                throw err
+            }
+        }
+        return
+    }
+
     const list = products
         .map((e, i) => `${i + 1}. ${e.emoji} ${e.name}`)
-        .join('\n') || '— пусто —'
+        .join('\n')
 
     const kb = new InlineKeyboard()
         .text('➕ Добавить', 'prompt_add')
@@ -198,40 +294,38 @@ async function renderProductsAndKeyboard(ctx: MyContext) {
         )
     } catch (err: any) {
         if (
-            err instanceof GrammyError &&
-            err.error_code === 400 &&
-            err.description?.includes('message is not modified')
+            !(err instanceof GrammyError &&
+                err.error_code === 400 &&
+                err.description?.includes('message is not modified'))
         ) {
-            return
+            throw err
         }
-        throw err
     }
 }
 
-/** Вывод порции похожих продуктов */
+/**
+ * Вывод порции похожих продуктов
+ */
 async function sendPage(ctx: MyContext) {
     const results = ctx.session.lastResults ?? []
     const page = ctx.session.page ?? 0
     const action = ctx.session.action!
     const start = page * PRODUCT_PAGE_SIZE
-    const end = start + PRODUCT_PAGE_SIZE
-    const slice = results.slice(start, end)
+    const slice = results.slice(start, start + PRODUCT_PAGE_SIZE)
 
     const kb = new InlineKeyboard()
     slice.forEach((item) => {
         const label = `${item.emoji ?? ''} ${item.name}`
-        kb
-            .text(
-                action === 'add' ? `➕ ${label}` : `➖ ${label}`,
-                `${action}_${item.productId}`
-            )
-            .row()
+        kb.text(
+            action === 'add' ? `➕ ${label}` : `➖ ${label}`,
+            `${action}_${item.productId}`
+        ).row()
     })
 
     if (page > 0) {
         kb.text('◀️ Назад', `page_${action}_${page - 1}`)
     }
-    if (end < results.length) {
+    if (start + PRODUCT_PAGE_SIZE < results.length) {
         kb.text('Вперёд ▶️', `page_${action}_${page + 1}`)
     }
 
