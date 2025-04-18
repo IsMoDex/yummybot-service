@@ -12,6 +12,7 @@ import { recipesCommand }  from './commands/recipes';
 import { favoritesCommand }from './commands/favorites';
 import { showRecipeAction, saveRecipeAction, deleteRecipeAction } from './commands/recipeActions';
 import {applyAddAction, applyReplaceAction} from "./commands/uploadActions";
+import menu from "./commands/menu";
 
 config();
 const bot = new Bot<Context>(process.env.BOT_TOKEN!);
@@ -27,6 +28,9 @@ bot.command('upload',   async ctx => { await ctx.reply('❗ Пожалуйста
 bot.on('message:photo', uploadCommand);
 bot.command('recipes',  recipesCommand);
 bot.command('favorites',favoritesCommand);
+bot.command('menu', menu);
+
+bot.hears('📦 Products', productsCommand);
 
 // inline‑действия
 bot.callbackQuery(/^show_\d+$/,   showRecipeAction);
