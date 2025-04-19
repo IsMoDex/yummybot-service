@@ -1,35 +1,88 @@
-import { Context, InlineKeyboard } from 'grammy';
-import { getRecipeRecommendations } from '../database/queries/recipe';
+// src/commands/recipes.ts
 
-export async function recipesCommand(ctx: Context) {
-    const telegramId = ctx.from?.id;
-    if (!telegramId) {
-        return ctx.reply('Ошибка: не удалось определить пользователя.');
+import { MyContext } from '../types'
+import { InlineKeyboard } from 'grammy'
+import { getRecipeRecommendations } from '../database/queries/recipe'
+import { RECIPE_PAGE_SIZE } from '../config'
+import { cleanupNav, renderNav } from '../utils/pagination'
+
+/**
+ * /recipes — загрузка и показ первой страницы
+ */
+export async function recipesCommand(ctx: MyContext) {
+    const telegramId = ctx.from!.id
+    const recs = await getRecipeRecommendations(telegramId, 1000)
+    if (!recs.length) {
+        return ctx.reply('Не нашлось рецептов по вашим продуктам. Добавьте ещё ингредиентов.')
     }
+    ctx.session.recs = recs
+    ctx.session.recipePage = 0
+    ctx.session.lastRecipeMessageIds = []
+    await cleanupNav(ctx, 'lastRecipesNavMessageId')
+    return renderRecipePage(ctx)
+}
 
-    const recs = await getRecipeRecommendations(telegramId, 5);
+/**
+ * Обработчик callback для страниц /recipes
+ */
+export async function recipesPageHandler(ctx: MyContext) {
+    const [, , pageStr] = ctx.callbackQuery!.data!.split('_') // recipes_page_<n>
+    ctx.session.recipePage = parseInt(pageStr, 10)
+    await ctx.answerCallbackQuery()
+    await cleanupRecipePage(ctx)
+    return renderRecipePage(ctx)
+}
 
-    if (recs.length === 0) {
-        return ctx.reply('Не нашлось рецептов по вашим продуктам. Добавьте ещё ингредиентов.');
-    }
+/** Рендер страницы рецептов */
+async function renderRecipePage(ctx: MyContext) {
+    const recs = ctx.session.recs!
+    const page = ctx.session.recipePage!
+    const start = page * RECIPE_PAGE_SIZE
+    const slice = recs.slice(start, start + RECIPE_PAGE_SIZE)
 
-    for (let i = 0; i < recs.length; i++) {
-        const r = recs[i];
-        const text = `*${i + 1}. ${r.title}*\n` +
-            `Ингредиенты: ${r.matchedCount}/${r.totalIngredients} совпало` +
-            (r.favProductMatches > 0
-                ? ` (в том числе ${r.favProductMatches} из ваших ♥️)`
-                : '') +
-            (r.description ? `\n${r.description}` : '');
+    ctx.session.lastRecipeMessageIds = []
+    // отправка каждого рецепта
+    for (let i = 0; i < slice.length; i++) {
+        const r = slice[i]
+        const num = start + i + 1
+        const text = [
+            `*${num}. ${r.title}*`,
+            `Ингредиенты: ${r.matchedCount}/${r.totalIngredients}` +
+            (r.favProductMatches ? ` (♥️ ${r.favProductMatches})` : ''),
+            r.description || '',
+        ].filter(Boolean).join('\n')
 
         const kb = new InlineKeyboard()
-            .text('📝 Показать рецепт', `show_${r.id}`)
-            .row()
-            .text('❤️ Сохранить рецепт', `save_${r.id}`);
+            .text('Показать рецепт', `show_${r.id}`)
+            .text('❤️ Сохранить',     `save_${r.id}`)
 
-        await ctx.reply(text, {
+        const sent = await ctx.reply(text, {
             parse_mode: 'Markdown',
             reply_markup: kb,
-        });
+        })
+        ctx.session.lastRecipeMessageIds!.push({
+            chat: sent.chat.id,
+            message_id: sent.message_id,
+        })
     }
+
+    // навигация
+    await renderNav(
+        ctx,
+        'recipes_page',
+        page,
+        recs.length,
+        RECIPE_PAGE_SIZE,
+        'lastRecipesNavMessageId'
+    )
+}
+
+/** Удаление предыдущей страницы */
+async function cleanupRecipePage(ctx: MyContext) {
+    const msgs = ctx.session.lastRecipeMessageIds || []
+    for (const m of msgs) {
+        try { await ctx.api.deleteMessage(m.chat, m.message_id) } catch {}
+    }
+    delete ctx.session.lastRecipeMessageIds
+    await cleanupNav(ctx, 'lastRecipesNavMessageId')
 }

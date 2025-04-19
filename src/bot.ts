@@ -12,8 +12,8 @@ import { addCommand }      from './commands/add';
 import { removeCommand }   from './commands/remove';
 import { clearCommand }    from './commands/clear';
 import { uploadCommand }   from './commands/upload';
-import { recipesCommand }  from './commands/recipes';
-import { favoritesCommand }from './commands/favorites';
+import {recipesCommand, recipesPageHandler} from './commands/recipes';
+import {favoritesCommand, favoritesPageHandler} from './commands/favorites';
 import menu from "./commands/menu";
 
 // — inline из recipeActions и uploadActions —
@@ -67,6 +67,8 @@ bot.callbackQuery(/^save_\d+$/,   saveRecipeAction);
 bot.callbackQuery(/^delete_\d+$/, deleteRecipeAction);
 bot.callbackQuery('apply_add',     applyAddAction);
 bot.callbackQuery('apply_replace', applyReplaceAction);
+bot.callbackQuery(/^recipes_page_\d+$/, recipesPageHandler)
+bot.callbackQuery(/^favorites_page_\d+$/, favoritesPageHandler)
 
 // === Prompt‑режим для add/remove продуктов ===
 bot.callbackQuery('prompt_add',    promptAddAction);
