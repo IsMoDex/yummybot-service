@@ -1,29 +1,34 @@
-import { Context } from 'grammy';
-import { removeProductFromUser } from '../database/queries/product';
+// src/commands/remove.ts
 
-export async function removeCommand(ctx: Context) {
-    const telegramId = ctx.from?.id;
-    const text = ctx.message?.text || '';
-    const parts = text.split(' ');
-    const productName = parts.slice(1).join(' ').trim().toLowerCase();
+import { MyContext } from '../types'
+import { removeProductFromUser } from '../database/queries/product'
+import { t } from '../i18n'
+
+export async function removeCommand(ctx: MyContext) {
+    const telegramId = ctx.from?.id
+    const text = ctx.message?.text || ''
+    const parts = text.split(' ')
+    const productName = parts.slice(1).join(' ').trim().toLowerCase()
 
     if (!telegramId || !productName) {
-        return ctx.reply('❗ Использование: /remove <название продукта>');
+        return ctx.reply(t(ctx, 'remove.usage'))
     }
 
-    const result = await removeProductFromUser(telegramId, productName);
-
+    const result = await removeProductFromUser(telegramId, productName)
     if (result.success) {
-        return ctx.reply(`🗑️ Продукт *${productName}* удалён из вашего списка.`, {
-            parse_mode: 'Markdown',
-        });
+        return ctx.reply(
+            t(ctx, 'remove.success', { productName }),
+            { parse_mode: 'Markdown' }
+        )
     } else if (result.reason === 'not_found') {
-        return ctx.reply(`⚠️ Продукт *${productName}* не найден в справочнике.`, {
-            parse_mode: 'Markdown',
-        });
+        return ctx.reply(
+            t(ctx, 'remove.notFound', { productName }),
+            { parse_mode: 'Markdown' }
+        )
     } else if (result.reason === 'not_in_list') {
-        return ctx.reply(`ℹ️ Продукта *${productName}* нет в вашем списке.`, {
-            parse_mode: 'Markdown',
-        });
+        return ctx.reply(
+            t(ctx, 'remove.notInList', { productName }),
+            { parse_mode: 'Markdown' }
+        )
     }
 }

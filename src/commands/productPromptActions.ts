@@ -1,3 +1,5 @@
+// src/commands/productPromptActions.ts
+
 import { MyContext } from '../types'
 import { findUser, createUser } from '../database/queries/user'
 import {
@@ -13,73 +15,72 @@ import {
 } from '../database/queries/productTranslation'
 import { InlineKeyboard, GrammyError } from 'grammy'
 import { PRODUCT_PAGE_SIZE } from '../config'
+import { t } from '../i18n'
 
-/**
- * Вход в prompt‑режим добавления
- */
+/** 1) Вход в prompt‑режим “Добавить” */
 export async function promptAddAction(ctx: MyContext) {
     await ctx.answerCallbackQuery()
     ctx.session.action = 'add'
     ctx.session.page = 0
     delete ctx.session.lastResults
-    return ctx.reply('Введите название продукта для добавления:')
+    return ctx.reply(t(ctx, 'productPrompt.add.prompt'))
 }
 
-/**
- * Вход в prompt‑режим удаления
- */
+/** 2) Вход в prompt‑режим “Убрать” */
 export async function promptRemoveAction(ctx: MyContext) {
     await ctx.answerCallbackQuery()
     ctx.session.action = 'remove'
     ctx.session.page = 0
     delete ctx.session.lastResults
-    return ctx.reply('Введите название продукта для удаления:')
+    return ctx.reply(t(ctx, 'productPrompt.remove.prompt'))
 }
 
-/**
- * Обработка текста в prompt‑режиме
- */
+/** 3) Обработка текста в prompt‑режиме */
 export async function productPromptTextHandler(ctx: MyContext) {
     const action = ctx.session.action
     if (!action) return
+
     const text = ctx.message?.text?.trim()
     if (!text) return
-    const lang = ctx.from?.language_code ?? 'ru'
-    const telegramId = ctx.from!.id
 
+    const from = ctx.from
+    if (!from) return
+    const lang = from.language_code || 'en'
+    const telegramId = from.id
+
+    // Убедимся, что user существует
     let user = await findUser(telegramId)
     if (!user) {
         user = await createUser(ctx)
         if (!user) {
-            return ctx.reply('❌ Не удалось создать пользователя, выполните /start')
+            return ctx.reply(t(ctx, 'productPrompt.userCreateError'))
         }
     }
 
-    // Попытка точного совпадения
+    // 3.1) Попытка точного совпадения
     const exact = await findExactTranslations(lang, text)
     if (exact.length === 1) {
         const { productId, name, emoji } = exact[0]
-        if (action === 'add') {
-            const res = await addProductToUser(telegramId, productId)
-            if (res.success) {
-                await ctx.reply(`✅ Добавлен ${emoji ?? ''} ${name}`)
-            } else if (res.reason === 'already_exists') {
-                await ctx.reply('ℹ️ Этот продукт уже в вашем списке')
-            } else {
-                await ctx.reply('❌ Продукт не найден в справочнике')
-            }
+        const res =
+            action === 'add'
+                ? await addProductToUser(telegramId, productId)
+                : await removeProductFromUser(telegramId, productId)
+
+        if (res.success) {
+            const key = action === 'add'
+                ? 'productPrompt.add.success'
+                : 'productPrompt.remove.success'
+            await ctx.reply(t(ctx, key, { name, emoji: emoji || '' }))
         } else {
-            const res = await removeProductFromUser(telegramId, productId)
-            if (res.success) {
-                await ctx.reply(`🗑️ Удалён ${emoji ?? ''} ${name}`)
-            } else if (res.reason === 'not_in_list') {
-                await ctx.reply('ℹ️ Этого продукта нет в вашем списке')
-            } else {
-                await ctx.reply('❌ Продукт не найден в справочнике')
-            }
+            const reasonKey = res.reason === 'already_exists'
+                ? 'productPrompt.add.alreadyExists'
+                : res.reason === 'not_in_list'
+                    ? 'productPrompt.remove.notInList'
+                    : 'productPrompt.notFound'
+            await ctx.reply(t(ctx, reasonKey, { name }))
         }
 
-        // Обновляем список /products
+        // Обновляем /products
         if (ctx.session.lastProductsMessage) {
             await renderProductsAndKeyboard(ctx)
         }
@@ -90,19 +91,19 @@ export async function productPromptTextHandler(ctx: MyContext) {
         return
     }
 
-    // Поиск похожих
+    // 3.2) Ищем похожие переводы
     let similar = await searchTranslations(lang, text)
     const userIds = await getUserProductIds(telegramId)
 
     if (action === 'add') {
-        similar = similar.filter((t) => !userIds.includes(t.productId))
+        similar = similar.filter(t => !userIds.includes(t.productId))
         if (!similar.length) {
-            return ctx.reply('✅ Все найденные продукты уже есть в вашем списке.')
+            return ctx.reply(t(ctx, 'productPrompt.add.none'))
         }
     } else {
-        similar = similar.filter((t) => userIds.includes(t.productId))
+        similar = similar.filter(t => userIds.includes(t.productId))
         if (!similar.length) {
-            return ctx.reply('❌ Нет похожих продуктов для удаления.')
+            return ctx.reply(t(ctx, 'productPrompt.remove.none'))
         }
     }
 
@@ -111,9 +112,7 @@ export async function productPromptTextHandler(ctx: MyContext) {
     return sendPage(ctx)
 }
 
-/**
- * Обработка пагинации
- */
+/** 4) Пагинация похожих */
 export async function productPromptPageHandler(ctx: MyContext) {
     const data = ctx.callbackQuery?.data
     if (!data) return
@@ -124,63 +123,66 @@ export async function productPromptPageHandler(ctx: MyContext) {
     return sendPage(ctx)
 }
 
-/**
- * Финальный обработчик add_<id> / remove_<id>
- */
+/** 5) Финальный add_<id> / remove_<id> */
 export async function productPromptFinalHandler(ctx: MyContext) {
     const data = ctx.callbackQuery?.data
     if (!data) return
+
+    // захватываем весь productId, даже с подчёркиваниями
     const m = data.match(/^(add|remove)_(.+)$/)
     if (!m) return
     const action = m[1] as 'add' | 'remove'
-    const productId = m[2]
-    const lang = ctx.from?.language_code ?? 'ru'
-    const telegramId = ctx.from!.id
+    const productId = m[2]  // теперь 'olive_oil', а не просто 'olive'
+
+    const from = ctx.from
+    if (!from) return
+    const lang = from.language_code || 'en'
+    const telegramId = from.id
 
     const tr = await getTranslationById(productId, lang)
     if (!tr) {
-        await ctx.answerCallbackQuery({ text: '❌ Продукт не найден.' })
-        return
+        return ctx.answerCallbackQuery({
+            text: t(ctx, 'productPrompt.notFound'),
+            show_alert: true,
+        })
     }
 
-    if (action === 'add') {
-        const res = await addProductToUser(telegramId, productId)
-        if (res.success) {
-            await ctx.answerCallbackQuery({ text: `✅ Добавлен ${tr.emoji ?? ''} ${tr.name}` })
-        } else if (res.reason === 'already_exists') {
-            await ctx.answerCallbackQuery({ text: 'ℹ️ Уже в списке.' })
-        } else {
-            await ctx.answerCallbackQuery({ text: '❌ Не найден в справочнике.' })
+    const res =
+        action === 'add'
+            ? await addProductToUser(telegramId, productId)
+            : await removeProductFromUser(telegramId, productId)
+
+    if (res.success) {
+        const key = action === 'add'
+            ? 'productPrompt.add.success'
+            : 'productPrompt.remove.success'
+        await ctx.answerCallbackQuery({
+            text: t(ctx, key, { name: tr.name, emoji: tr.emoji || '' }),
+        })
+        removeFromLastResults(ctx, productId)
+        await updateSimilarKeyboard(ctx)
+        if (ctx.session.lastProductsMessage) {
+            await renderProductsAndKeyboard(ctx)
         }
     } else {
-        const res = await removeProductFromUser(telegramId, productId)
-        if (res.success) {
-            await ctx.answerCallbackQuery({ text: `🗑️ Удалён ${tr.emoji ?? ''} ${tr.name}` })
-        } else if (res.reason === 'not_in_list') {
-            await ctx.answerCallbackQuery({ text: 'ℹ️ Не в вашем списке.' })
-        } else {
-            await ctx.answerCallbackQuery({ text: '❌ Не найден в справочнике.' })
-        }
-    }
-
-    // Удаляем нажатый продукт из результатов
-    removeFromLastResults(ctx, productId)
-    // Обновляем inline‑клавиатуру похожих
-    await updateSimilarKeyboard(ctx)
-
-    // Обновляем /products
-    if (ctx.session.lastProductsMessage) {
-        await renderProductsAndKeyboard(ctx)
+        const reasonKey = res.reason === 'already_exists'
+            ? 'productPrompt.add.alreadyExists'
+            : res.reason === 'not_in_list'
+                ? 'productPrompt.remove.notInList'
+                : 'productPrompt.notFound'
+        await ctx.answerCallbackQuery({
+            text: t(ctx, reasonKey, { name: tr.name }),
+            show_alert: res.reason !== 'already_exists' && res.reason !== 'not_in_list',
+        })
     }
 }
 
-/**
- * Удаляет productId из session.lastResults и корректирует страницу
- */
+// — Вспомогательные функции — //
+
 function removeFromLastResults(ctx: MyContext, productId: string) {
     if (!ctx.session.lastResults) return
     ctx.session.lastResults = ctx.session.lastResults.filter(
-        (t) => t.productId !== productId
+        t => t.productId !== productId
     )
     const total = ctx.session.lastResults.length
     const maxPage = Math.floor((total - 1) / PRODUCT_PAGE_SIZE)
@@ -189,148 +191,110 @@ function removeFromLastResults(ctx: MyContext, productId: string) {
     }
 }
 
-/**
- * Обновляет inline‑клавиатуру похожих на месте
- */
 async function updateSimilarKeyboard(ctx: MyContext) {
-    const results = ctx.session.lastResults ?? []
-    const page = ctx.session.page ?? 0
+    const results = ctx.session.lastResults || []
+    const page = ctx.session.page!
     const start = page * PRODUCT_PAGE_SIZE
     const slice = results.slice(start, start + PRODUCT_PAGE_SIZE)
 
-    // Если список пуст — заменяем текст
-    if (results.length === 0) {
-        try {
-            await ctx.editMessageText(
-                '✅ Все предложенные продукты обработаны.',
-                { reply_markup: undefined }
-            )
-        } catch (err: any) {
-            if (
-                !(err instanceof GrammyError &&
-                    err.error_code === 400 &&
-                    err.description?.includes('message is not modified'))
-            ) {
-                throw err
-            }
-        }
-        return
+    if (!slice.length) {
+        return ctx.editMessageText(t(ctx, 'productPrompt.similar.empty'))
     }
 
     const kb = new InlineKeyboard()
-    slice.forEach((item) => {
-        const label = `${item.emoji ?? ''} ${item.name}`
-        kb.text(
-            ctx.session.action === 'add' ? `➕ ${label}` : `➖ ${label}`,
-            `${ctx.session.action}_${item.productId}`
-        ).row()
+    slice.forEach(item => {
+        const label = `${item.emoji || ''} ${item.name}`
+        const btnKey = ctx.session.action === 'add'
+            ? 'productPrompt.similar.addButton'
+            : 'productPrompt.similar.removeButton'
+        kb.text(t(ctx, btnKey, { label }), `${ctx.session.action}_${item.productId}`).row()
     })
 
     if (page > 0) {
-        kb.text('◀️ Назад', `page_${ctx.session.action}_${page - 1}`)
+        kb.text(
+            t(ctx, 'productPrompt.pagination.prev'),
+            `page_${ctx.session.action}_${page - 1}`
+        )
     }
     if (start + PRODUCT_PAGE_SIZE < results.length) {
-        kb.text('Вперёд ▶️', `page_${ctx.session.action}_${page + 1}`)
+        kb.text(
+            t(ctx, 'productPrompt.pagination.next'),
+            `page_${ctx.session.action}_${page + 1}`
+        )
     }
 
     try {
         await ctx.editMessageReplyMarkup({ reply_markup: kb })
     } catch (err: any) {
-        if (
-            !(err instanceof GrammyError &&
-                err.error_code === 400 &&
-                err.description?.includes('message is not modified'))
-        ) {
-            throw err
-        }
+        if (!(err instanceof GrammyError && err.error_code === 400)) throw err
     }
 }
 
-/**
- * Рендер и правка последнего списка /products
- */
 async function renderProductsAndKeyboard(ctx: MyContext) {
     const { chat, message_id } = ctx.session.lastProductsMessage!
-    const telegramId = ctx.from!.id
-    const lang = ctx.from?.language_code || 'ru'
+    const from = ctx.from!
+    const lang = from.language_code || 'en'
 
-    const products = await getUserProducts(telegramId, lang)
-    // Если пуст
-    if (products.length === 0) {
-        const kbEmpty = new InlineKeyboard().text('➕ Добавить', 'prompt_add')
-        try {
-            await ctx.api.editMessageText(
-                chat,
-                message_id,
-                '⚠️ Вы удалили все продукты. Добавьте новые через "➕ Добавить".',
-                { reply_markup: kbEmpty }
-            )
-        } catch (err: any) {
-            if (
-                !(err instanceof GrammyError &&
-                    err.error_code === 400 &&
-                    err.description?.includes('message is not modified'))
-            ) {
-                throw err
-            }
-        }
-        return
+    const products = await getUserProducts(from.id, lang)
+    if (!products.length) {
+        const kbEmpty = new InlineKeyboard()
+            .text(t(ctx, 'productPrompt.add.button'), 'prompt_add')
+        return ctx.api.editMessageText(
+            chat,
+            message_id,
+            t(ctx, 'productPrompt.list.empty'),
+            { reply_markup: kbEmpty }
+        )
     }
 
     const list = products
-        .map((e, i) => `${i + 1}. ${e.emoji} ${e.name}`)
+        .map((p, i) => `${i + 1}. ${p.emoji} ${p.name}`)
         .join('\n')
-
     const kb = new InlineKeyboard()
-        .text('➕ Добавить', 'prompt_add')
-        .text('➖ Убрать',   'prompt_remove')
+        .text(t(ctx, 'productPrompt.add.button'), 'prompt_add')
+        .text(t(ctx, 'productPrompt.remove.button'), 'prompt_remove')
 
-    try {
-        await ctx.api.editMessageText(
-            chat,
-            message_id,
-            `*Ваши продукты:*\n\n${list}`,
-            { parse_mode: 'Markdown', reply_markup: kb }
-        )
-    } catch (err: any) {
-        if (
-            !(err instanceof GrammyError &&
-                err.error_code === 400 &&
-                err.description?.includes('message is not modified'))
-        ) {
-            throw err
-        }
-    }
+    await ctx.api.editMessageText(
+        chat,
+        message_id,
+        `${t(ctx, 'productPrompt.list.header')}\n\n${list}`,
+        { parse_mode: 'Markdown', reply_markup: kb }
+    )
 }
 
-/**
- * Вывод порции похожих продуктов
- */
 async function sendPage(ctx: MyContext) {
-    const results = ctx.session.lastResults ?? []
-    const page = ctx.session.page ?? 0
-    const action = ctx.session.action!
+    const results = ctx.session.lastResults || []
+    const page = ctx.session.page!
     const start = page * PRODUCT_PAGE_SIZE
     const slice = results.slice(start, start + PRODUCT_PAGE_SIZE)
 
     const kb = new InlineKeyboard()
-    slice.forEach((item) => {
-        const label = `${item.emoji ?? ''} ${item.name}`
-        kb.text(
-            action === 'add' ? `➕ ${label}` : `➖ ${label}`,
-            `${action}_${item.productId}`
-        ).row()
+    slice.forEach(item => {
+        const label = `${item.emoji || ''} ${item.name}`
+        const btnKey = ctx.session.action === 'add'
+            ? 'productPrompt.similar.addButton'
+            : 'productPrompt.similar.removeButton'
+        kb.text(t(ctx, btnKey, { label }), `${ctx.session.action}_${item.productId}`).row()
     })
 
     if (page > 0) {
-        kb.text('◀️ Назад', `page_${action}_${page - 1}`)
+        kb.text(
+            t(ctx, 'productPrompt.pagination.prev'),
+            `page_${ctx.session.action}_${page - 1}`
+        )
     }
     if (start + PRODUCT_PAGE_SIZE < results.length) {
-        kb.text('Вперёд ▶️', `page_${action}_${page + 1}`)
+        kb.text(
+            t(ctx, 'productPrompt.pagination.next'),
+            `page_${ctx.session.action}_${page + 1}`
+        )
     }
 
     await ctx.reply(
-        `Похожие продукты (стр. ${page + 1}/${Math.ceil(results.length / PRODUCT_PAGE_SIZE)}):`,
+        t(ctx, 'productPrompt.similar.header', {
+            page: page + 1,
+            total: Math.ceil(results.length / PRODUCT_PAGE_SIZE),
+        }),
         { reply_markup: kb }
     )
 }

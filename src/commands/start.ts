@@ -1,23 +1,28 @@
-import { Context } from 'grammy';
-import { findUser, createUser } from '../database/queries/user';
-import {mainKeyboard} from "../keyboards/mainKeyboard";
+// src/commands/start.ts
 
-export async function startCommand(ctx: Context) {
-    const telegramId = ctx.from?.id;
+import { MyContext } from '../types'
+import { findUser, createUser } from '../database/queries/user'
+import { mainKeyboard } from '../keyboards/mainKeyboard'
+import { t } from '../i18n'
 
+export async function startCommand(ctx: MyContext) {
+    const telegramId = ctx.from?.id
     if (!telegramId) {
-        return ctx.reply("Не удалось определить ваш Telegram ID.");
+        return ctx.reply(t(ctx, 'start.errorNoId'))
     }
 
-    const existingUser = await findUser(telegramId);
-
-    if (existingUser) {
-        return ctx.reply(`С возвращением, ${existingUser.firstName || 'друг'}! 👋`, { reply_markup: mainKeyboard });
+    const user = await findUser(telegramId)
+    const firstName = ctx.from.first_name || ''
+    if (user) {
+        return ctx.reply(
+            t(ctx, 'start.returning', { firstName }),
+            { reply_markup: mainKeyboard(ctx) }
+        )
     }
 
-    await createUser(ctx);
+    await createUser(ctx)
     return ctx.reply(
-        `Привет! 👋 Я помогу тебе распознавать продукты в холодильнике и подсказывать рецепты. Для начала отправь фото содержимого холодильника или воспользуйся командой /help.`,
-        { reply_markup: mainKeyboard }
-    );
+        t(ctx, 'start.greeting', { firstName }),
+        { reply_markup: mainKeyboard(ctx) }
+    )
 }

@@ -1,8 +1,14 @@
-import { Keyboard } from 'grammy';
+// src/keyboards/mainKeyboard.ts
 
-export const mainKeyboard = new Keyboard()
-    .text('🍎 Продукты')
-    .text('🍲 Рецепты')
-    .row()
-    .text('📖 Сохраненные рецепты')
-    .resized();
+import { MyContext } from '../types'
+import { Keyboard } from 'grammy'
+import { t } from '../i18n'
+
+export function mainKeyboard(ctx: MyContext) {
+    return new Keyboard()
+        .text(t(ctx, 'keyboard.products'))
+        .text(t(ctx, 'keyboard.recipes'))
+        .row()
+        .text(t(ctx, 'keyboard.favorites'))
+        .resized()
+}

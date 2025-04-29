@@ -5,15 +5,15 @@ import { InlineKeyboard } from 'grammy'
 import { getRecipeRecommendations } from '../database/queries/recipe'
 import { RECIPE_PAGE_SIZE } from '../config'
 import { cleanupNav, renderNav } from '../utils/pagination'
+import {t} from "../i18n";
 
 /**
  * /recipes — загрузка и показ первой страницы
  */
 export async function recipesCommand(ctx: MyContext) {
-    const telegramId = ctx.from!.id
-    const recs = await getRecipeRecommendations(telegramId, 1000)
+    const recs = await getRecipeRecommendations(ctx.from!.id, 1000)
     if (!recs.length) {
-        return ctx.reply('Не нашлось рецептов по вашим продуктам. Добавьте ещё ингредиентов.')
+        return ctx.reply(t(ctx, 'recipes.noResults'))
     }
     ctx.session.recs = recs
     ctx.session.recipePage = 0

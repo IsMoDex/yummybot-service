@@ -2,6 +2,7 @@
 
 import { MyContext, MySession } from '../types'
 import { InlineKeyboard } from 'grammy'
+import { t } from '../i18n'
 
 export interface NavSessionKey {
     chat: number
@@ -23,7 +24,7 @@ export async function cleanupNav<K extends keyof MySession>(
 /**
  * Рисует навигацию страниц:
  * - prefix: префикс callback data, например 'recipes_page'
- * - page: текущая страница 0‑based
+ * - page: текущая страница 0-based
  * - totalItems: число элементов
  * - pageSize: размер страницы
  * - sessionKey: куда сохранить ID навигационного сообщения
@@ -37,6 +38,10 @@ export async function renderNav<K extends keyof MySession>(
     sessionKey: K
 ): Promise<void> {
     const totalPages = Math.ceil(totalItems / pageSize)
+    // Если всего одна страница — не выводим навигацию
+    if (totalPages <= 1) return
+
+    // Индикатор страниц: ● — текущая, ○ — остальные
     const indicator = Array.from({ length: totalPages }, (_, i) =>
         i === page ? '●' : '○'
     ).join(' ')
@@ -44,14 +49,20 @@ export async function renderNav<K extends keyof MySession>(
     // Собираем клавиатуру
     const kb = new InlineKeyboard()
     if (page > 0) {
-        kb.text('◀️ Назад', `${prefix}_${page - 1}`)
+        kb.text(t(ctx, 'pagination.prev'), `${prefix}_${page - 1}`)
     }
     if (page + 1 < totalPages) {
-        kb.text('Вперёд ▶️', `${prefix}_${page + 1}`)
+        kb.text(t(ctx, 'pagination.next'), `${prefix}_${page + 1}`)
     }
 
-    // Текст сообщения = номер страницы + индикатор
-    const navText = `Стр. ${page + 1}/${totalPages}\n${indicator}`
+    // Заголовок с номером страницы, мультиязычный
+    // ключи в локалях: "pagination.header": "Стр. {current}/{total}" или "Page {current}/{total}"
+    const header = t(ctx, 'pagination.header', {
+        current: page + 1,
+        total: totalPages,
+    })
+
+    const navText = `${header}\n${indicator}`
 
     const sent = await ctx.reply(navText, {
         reply_markup: kb,

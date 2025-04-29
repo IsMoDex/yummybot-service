@@ -1,16 +1,18 @@
-import { Context } from 'grammy';
-import { clearUserProducts } from '../database/queries/product';
+// src/commands/clear.ts
 
-export async function clearCommand(ctx: Context) {
-    const telegramId = ctx.from?.id;
+import { MyContext } from '../types'
+import { clearUserProducts } from '../database/queries/product'
+import { t } from '../i18n'
+
+export async function clearCommand(ctx: MyContext) {
+    const telegramId = ctx.from?.id
     if (!telegramId) {
-        return ctx.reply('Ошибка: не удалось определить пользователя.');
+        return ctx.reply(t(ctx, 'clear.errorNoUser'))
     }
-
-    const deleted = await clearUserProducts(telegramId);
+    const deleted = await clearUserProducts(telegramId)
     if (deleted > 0) {
-        return ctx.reply(`🗑️ Удалено ${deleted} продуктов из вашего списка.`);
+        return ctx.reply(t(ctx, 'clear.deleted', { count: deleted }))
     } else {
-        return ctx.reply('Ваш список продуктов уже пуст.');
+        return ctx.reply(t(ctx, 'clear.alreadyEmpty'))
     }
 }
