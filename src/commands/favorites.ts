@@ -71,7 +71,7 @@ async function renderFavoritesPage(ctx: MyContext) {
         ctx,
         'favorites_page',
         page,
-        (ctx.session.favs || []).length,
+        favs.length,
         RECIPE_PAGE_SIZE,
         'lastFavoritesNavMessageId'
     )

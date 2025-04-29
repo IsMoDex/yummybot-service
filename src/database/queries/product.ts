@@ -12,7 +12,7 @@ type UserProductWithTranslation = {
     createdAt: Date;
 };
 
-export async function getUserProducts(telegramId: number, language = 'ru') {
+export async function getUserProducts(telegramId: number, language = 'en') {
     const user = await prisma.user.findUnique({
         where: { telegramId },
         select: { id: true },

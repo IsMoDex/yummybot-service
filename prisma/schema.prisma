@@ -21,19 +21,19 @@ model User {
 }
 
 model Product {
-  id           String                @id                                  // machine‑readable ID, например "banana"
+  id           String                @id
   translations ProductTranslation[]   // Локализации названия и эмодзи
-  userEntries  UserProduct[]         // Привязки к пользователям
-  inRecipes    RecipeProduct[]       // Привязки к рецептам
-  favByUsers   FavoriteProduct[]     // Обратная связь с любимыми продуктами
+  userEntries  UserProduct[]
+  inRecipes    RecipeProduct[]
+  favByUsers   FavoriteProduct[]
 }
 
 model ProductTranslation {
   id         Int      @id @default(autoincrement())
   productId  String
   language   String   // 'ru', 'en', 'fr' и т.д.
-  name       String   // Название на языке
-  emoji      String?  // Эмодзи
+  name       String
+  emoji      String?
 
   product    Product  @relation(fields: [productId], references: [id])
 
@@ -64,14 +64,30 @@ model FavoriteProduct {
   @@unique([userId, productId])
 }
 
+//
+// Здесь начальные изменения: удаляем title/description/steps из Recipe,
+// и добавляем таблицу переводов для RecipeTranslation
+//
+
 model Recipe {
-  id               Int               @id @default(autoincrement())
-  title            String
-  description      String?
-  steps            String
-  createdAt        DateTime          @default(now())
-  ingredients      RecipeProduct[]   // Связь с ингредиентами
-  favoriteByUsers  FavoriteRecipe[]  // Избранные рецепты пользователей
+  id               Int                  @id @default(autoincrement())
+  createdAt        DateTime             @default(now())
+  translations     RecipeTranslation[]  // Локализации заголовка, описания и шагов
+  ingredients      RecipeProduct[]
+  favoriteByUsers  FavoriteRecipe[]
+}
+
+model RecipeTranslation {
+  id          Int      @id @default(autoincrement())
+  recipeId    Int
+  language    String
+  title       String
+  description String?
+  steps       String?
+
+  recipe      Recipe   @relation(fields: [recipeId], references: [id])
+
+  @@unique([recipeId, language])
 }
 
 model RecipeProduct {

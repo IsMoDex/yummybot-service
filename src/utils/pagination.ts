@@ -56,7 +56,6 @@ export async function renderNav<K extends keyof MySession>(
     }
 
     // Заголовок с номером страницы, мультиязычный
-    // ключи в локалях: "pagination.header": "Стр. {current}/{total}" или "Page {current}/{total}"
     const header = t(ctx, 'pagination.header', {
         current: page + 1,
         total: totalPages,

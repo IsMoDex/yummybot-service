@@ -14,8 +14,8 @@ export async function showRecipeAction(ctx: MyContext) {
     const recipeId = Number(data.split('_')[1])
     if (isNaN(recipeId)) return
 
-    const ctxLang = ctx.from?.language_code || 'en'
-    const recipe = await getRecipeById(recipeId, ctxLang)
+    const lang = ctx.from?.language_code || 'en'
+    const recipe = await getRecipeById(recipeId, lang)
     if (!recipe) {
         await ctx.answerCallbackQuery({
             text: t(ctx, 'recipe.notFound'),
@@ -28,16 +28,16 @@ export async function showRecipeAction(ctx: MyContext) {
         .map(i => `${i.emoji} ${i.name}`)
         .join('\n')
 
-    const text = [
+    const parts = [
         `*${recipe.title}*`,
-        recipe.description || '',
+        recipe.description ? `${recipe.description}` : '',
         `*${t(ctx, 'recipe.ingredients')}:*`,
         ingredientsList,
         `*${t(ctx, 'recipe.steps')}:*`,
-        recipe.steps,
-    ].filter(Boolean).join('\n\n')
+        recipe.steps || '',
+    ].filter(Boolean)
 
-    await ctx.reply(text, { parse_mode: 'Markdown' })
+    await ctx.reply(parts.join('\n\n'), { parse_mode: 'Markdown' })
     await ctx.answerCallbackQuery()
 }
 
@@ -56,7 +56,10 @@ export async function saveRecipeAction(ctx: MyContext) {
     } else if (res.reason === 'already_exists') {
         await ctx.answerCallbackQuery({ text: t(ctx, 'recipe.alreadySaved') })
     } else {
-        await ctx.answerCallbackQuery({ text: t(ctx, 'recipe.saveError'), show_alert: true })
+        await ctx.answerCallbackQuery({
+            text: t(ctx, 'recipe.saveError'),
+            show_alert: true,
+        })
     }
 }
 
@@ -74,6 +77,9 @@ export async function deleteRecipeAction(ctx: MyContext) {
         await ctx.deleteMessage()
         await ctx.answerCallbackQuery({ text: t(ctx, 'recipe.deleted') })
     } else {
-        await ctx.answerCallbackQuery({ text: t(ctx, 'recipe.deleteError'), show_alert: true })
+        await ctx.answerCallbackQuery({
+            text: t(ctx, 'recipe.deleteError'),
+            show_alert: true,
+        })
     }
 }
