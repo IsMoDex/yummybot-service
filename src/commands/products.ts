@@ -18,14 +18,23 @@ export async function productsCommand(ctx: MyContext) {
 
     if (products.length === 0) {
         // если товаров нет — одна кнопка «Добавить»
-        text = t(ctx, 'products.noItems')
+        text = `*${t(ctx, 'products.noItems')}*`
         kb.text(t(ctx, 'keyboard.add'), 'prompt_add')
     } else {
-        // если товары есть — список + две кнопки «Добавить»/«Убрать»
-        const list = products
-            .map((p, i) => `${i + 1}. ${p.emoji} ${p.name}`)
-            .join('\n')
-        text = `${t(ctx, 'products.header')}\n\n${list}`
+        // если товары есть — заголовок + простой список
+        const header = t(ctx, 'products.header') // e.g. "Ваши продукты:"
+        const separator = '─'.repeat(header.length)
+        const listLines = products.map((p, i) => {
+            const idx = i + 1
+            return `${idx}. ${p.emoji} ${p.name}`
+        })
+        text = [
+            `*${header}*`,
+            separator,
+            ...listLines
+        ].join('\n')
+
+        // Общие кнопки «Добавить»/«Убрать»
         kb
             .text(t(ctx, 'keyboard.add'), 'prompt_add')
             .text(t(ctx, 'keyboard.remove'), 'prompt_remove')
@@ -36,7 +45,7 @@ export async function productsCommand(ctx: MyContext) {
         ...(products.length > 0 ? { parse_mode: 'Markdown' as const } : {}),
     })
 
-    // запомним, чтобы потом редактировать
+    // Запомним, чтобы потом редактировать
     ctx.session.lastProductsMessage = {
         chat: sent.chat.id,
         message_id: sent.message_id,
