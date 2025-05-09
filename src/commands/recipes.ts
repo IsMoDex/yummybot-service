@@ -5,16 +5,19 @@ import { InlineKeyboard } from 'grammy'
 import { getRecipeRecommendations } from '../database/queries/recipe'
 import { RECIPE_PAGE_SIZE } from '../config'
 import { cleanupNav, renderNav } from '../utils/pagination'
-import {t} from "../i18n";
+import { t } from '../i18n'
 
 /**
  * /recipes — загрузка и показ первой страницы
  */
 export async function recipesCommand(ctx: MyContext) {
-    const recs = await getRecipeRecommendations(ctx.from!.id, 1000)
+    const telegramId = ctx.from!.id
+    const lang = ctx.from!.language_code || 'en'
+    const recs = await getRecipeRecommendations(telegramId, 1000, lang)
     if (!recs.length) {
         return ctx.reply(t(ctx, 'recipes.noResults'))
     }
+
     ctx.session.recs = recs
     ctx.session.recipePage = 0
     ctx.session.lastRecipeMessageIds = []
@@ -26,7 +29,9 @@ export async function recipesCommand(ctx: MyContext) {
  * Обработчик callback для страниц /recipes
  */
 export async function recipesPageHandler(ctx: MyContext) {
-    const [, , pageStr] = ctx.callbackQuery!.data!.split('_') // recipes_page_<n>
+    const data = ctx.callbackQuery?.data
+    if (!data) return
+    const [, , pageStr] = data.split('_') // recipes_page_<n>
     ctx.session.recipePage = parseInt(pageStr, 10)
     await ctx.answerCallbackQuery()
     await cleanupRecipePage(ctx)
@@ -41,20 +46,20 @@ async function renderRecipePage(ctx: MyContext) {
     const slice = recs.slice(start, start + RECIPE_PAGE_SIZE)
 
     ctx.session.lastRecipeMessageIds = []
-    // отправка каждого рецепта
     for (let i = 0; i < slice.length; i++) {
         const r = slice[i]
         const num = start + i + 1
-        const text = [
+        const parts = [
             `*${num}. ${r.title}*`,
-            `Ингредиенты: ${r.matchedCount}/${r.totalIngredients}` +
+            `${t(ctx, 'recipe.ingredients')}: ${r.matchedCount}/${r.totalIngredients}` +
             (r.favProductMatches ? ` (♥️ ${r.favProductMatches})` : ''),
             r.description || '',
-        ].filter(Boolean).join('\n')
+        ].filter(Boolean)
+        const text = parts.join('\n\n')
 
         const kb = new InlineKeyboard()
-            .text('Показать рецепт', `show_${r.id}`)
-            .text('❤️ Сохранить',     `save_${r.id}`)
+            .text(t(ctx, 'recipes.showRecipe'), `show_${r.id}`)
+            .text(t(ctx, 'recipes.saveRecipe'), `save_${r.id}`)
 
         const sent = await ctx.reply(text, {
             parse_mode: 'Markdown',
@@ -66,7 +71,6 @@ async function renderRecipePage(ctx: MyContext) {
         })
     }
 
-    // навигация
     await renderNav(
         ctx,
         'recipes_page',

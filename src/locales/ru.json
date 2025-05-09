@@ -66,5 +66,7 @@
   "productPrompt.similar.header": "Похожие продукты (стр. {page}/{total}):",
   "pagination.prev": "◀️ Назад",
   "pagination.next": "Вперёд ▶️",
-  "pagination.header": "Стр. {current}/{total}"
+  "pagination.header": "Стр. {current}/{total}",
+  "recipes.showRecipe": "Показать рецепт",
+  "recipes.saveRecipe": "❤️ Сохранить"
 }

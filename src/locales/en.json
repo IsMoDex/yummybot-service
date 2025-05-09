@@ -66,5 +66,7 @@
   "productPrompt.similar.header": "Similar products (page {page}/{total}):",
   "pagination.prev": "◀️ Back",
   "pagination.next": "Next ▶️",
-  "pagination.header": "Page {current}/{total}"
+  "pagination.header": "Page {current}/{total}",
+  "recipes.showRecipe": "Show recipe",
+  "recipes.saveRecipe": "❤️ Save"
 }
