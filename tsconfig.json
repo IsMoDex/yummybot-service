@@ -1,20 +1,23 @@
 {
   "compilerOptions": {
-    "target": "ES6",                          // Целевая версия JavaScript
-    "module": "commonjs",                     // Модульная система
-    "strict": true,                           // Включить строгий режим
-    "esModuleInterop": true,                  // Включить совместимость с ES модулями
-    "skipLibCheck": true,                     // Пропустить проверку типов в файлах .d.ts
-    "forceConsistentCasingInFileNames": true, // Принудительное соблюдение регистра в именах файлов
-    "outDir": "./dist",                       // Директория для скомпилированных файлов
-    "rootDir": "./src",                       // Корневая директория исходных файлов
-    "types": ["node"]
+    "target": "ES6",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": ["node"],
+    "typeRoots": ["./src/types", "./node_modules/@types"]
   },
   "include": [
-    "src/**/*"                                 // Включить все файлы в директории src
+    "src/**/*",
+    "prisma/seed.ts",
+    "prisma/seeds/**/*.ts"
   ],
   "exclude": [
-    "node_modules",                            // Исключить директорию node_modules
-    "**/*.spec.ts"                            // Исключить файлы тестов
+    "node_modules",
+    "**/*.spec.ts"
   ]
 }

@@ -64,11 +64,6 @@ model FavoriteProduct {
   @@unique([userId, productId])
 }
 
-//
-// Здесь начальные изменения: удаляем title/description/steps из Recipe,
-// и добавляем таблицу переводов для RecipeTranslation
-//
-
 model Recipe {
   id               Int                  @id @default(autoincrement())
   createdAt        DateTime             @default(now())

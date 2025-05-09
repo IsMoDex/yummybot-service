@@ -18,4 +18,4 @@ export const config = {
 };
 
 export const PRODUCT_PAGE_SIZE = 5;
-export const RECIPE_PAGE_SIZE = 1;
+export const RECIPE_PAGE_SIZE = 5;
