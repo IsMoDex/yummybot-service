@@ -51,8 +51,7 @@ async function renderRecipePage(ctx: MyContext) {
         const num = start + i + 1
         const parts = [
             `*${num}. ${r.title}*`,
-            `${t(ctx, 'recipe.ingredients')}: ${r.matchedCount}/${r.totalIngredients}` +
-            (r.favProductMatches ? ` (♥️ ${r.favProductMatches})` : ''),
+            `${t(ctx, 'recipe.ingredients')}: ${r.matchedCount}/${r.totalIngredients}`,
             r.description || '',
         ].filter(Boolean)
         const text = parts.join('\n\n')

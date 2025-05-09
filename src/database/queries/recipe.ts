@@ -9,7 +9,6 @@ export interface RecipeRecommendation {
     steps: string | null
     matchedCount: number
     totalIngredients: number
-    favProductMatches: number
 }
 
 export interface RecipeDetail {
@@ -22,6 +21,9 @@ export interface RecipeDetail {
 
 /**
  * Список рекомендаций по рецептам, с учётом языка локали.
+ * Сортировка:
+ * 1) по общему числу ингредиентов (меньше → больше);
+ * 2) при равном числе ингредиентов – по числу совпавших (больше → меньше).
  */
 export async function getRecipeRecommendations(
     telegramId: number,
@@ -34,17 +36,12 @@ export async function getRecipeRecommendations(
     })
     if (!user) return []
 
-    // Собираем продукты и любимые продукты пользователя
+    // Собираем продукты пользователя
     const userProds = await prisma.userProduct.findMany({
         where: { userId: user.id },
         select: { productId: true },
     })
-    const favProds = await prisma.favoriteProduct.findMany({
-        where: { userId: user.id },
-        select: { productId: true },
-    })
     const userIds = new Set(userProds.map(p => p.productId))
-    const favIds = new Set(favProds.map(p => p.productId))
 
     // Загружаем все рецепты с переводами и ингредиентами
     const recipes = await prisma.recipe.findMany({
@@ -59,13 +56,12 @@ export async function getRecipeRecommendations(
         },
     })
 
-    // Оцениваем каждый рецепт
+    // Подсчитываем совпадения и формируем массив
     const scored = recipes
         .map(r => {
             const tr = r.translations[0]
             const ids = r.ingredients.map(i => i.productId)
             const matchedCount = ids.filter(id => userIds.has(id)).length
-            const favProductMatches = ids.filter(id => favIds.has(id)).length
             return {
                 id: r.id,
                 title: tr?.title ?? `#${r.id}`,
@@ -73,19 +69,18 @@ export async function getRecipeRecommendations(
                 steps: tr?.steps ?? null,
                 matchedCount,
                 totalIngredients: ids.length,
-                favProductMatches,
             }
         })
         .filter(r => r.matchedCount > 0)
 
-    // Сортируем: полные → минимальные пропуски → по любимым
+    // Новая сортировка:
     scored.sort((a, b) => {
-        const aMiss = a.totalIngredients - a.matchedCount
-        const bMiss = b.totalIngredients - b.matchedCount
-        if (aMiss === 0 && bMiss !== 0) return -1
-        if (bMiss === 0 && aMiss !== 0) return 1
-        if (aMiss !== bMiss) return aMiss - bMiss
-        return b.favProductMatches - a.favProductMatches
+        // 1) по totalIngredients (меньше → больше)
+        if (a.totalIngredients !== b.totalIngredients) {
+            return a.totalIngredients - b.totalIngredients
+        }
+        // 2) при равном totalIngredients – по matchedCount (больше → меньше)
+        return b.matchedCount - a.matchedCount
     })
 
     return scored.slice(0, limit)
