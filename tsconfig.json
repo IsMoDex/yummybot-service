@@ -7,17 +7,16 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "./src",
     "types": ["node"],
     "typeRoots": ["./src/types", "./node_modules/@types"]
   },
   "include": [
-    "src/**/*",
-    "prisma/seed.ts",
-    "prisma/seeds/**/*.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
+    "dist",
     "**/*.spec.ts"
   ]
 }

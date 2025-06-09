@@ -1,0 +1,9 @@
+services:
+  bot:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - './prisma/dev.db:/app/prisma/dev.db'
+      # монтируем .env из корня проекта в /app/.env внутри контейнера
+      - './.env:/app/.env:ro'
