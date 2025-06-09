@@ -16,10 +16,14 @@ export async function uploadCommand(ctx: MyContext) {
         return ctx.reply(t(ctx, 'upload.noPhoto'))
     }
 
+    // 0) Уведомляем пользователя, что фото получено и началась обработка
+    await ctx.reply(t(ctx, 'upload.processing'))
+
     const fileId = photo[photo.length - 1].file_id
-    const token  = process.env.BOT_TOKEN!
+    const token = process.env.BOT_TOKEN!
     let link: string
 
+    // 1) Получить ссылку на файл
     try {
         const file = await ctx.api.getFile(fileId)
         link = `https://api.telegram.org/file/bot${token}/${file.file_path}`
@@ -27,6 +31,7 @@ export async function uploadCommand(ctx: MyContext) {
         return ctx.reply(t(ctx, 'upload.getFileError'))
     }
 
+    // 2) Скачать содержимое
     let buffer: Buffer
     try {
         const resp = await axios.get<ArrayBuffer>(link, {
@@ -42,8 +47,10 @@ export async function uploadCommand(ctx: MyContext) {
         return ctx.reply(t(ctx, 'upload.downloadError'))
     }
 
+    // 3) Сохранить факт загрузки
     await saveImageUpload(ctx.from!.id, link)
 
+    // 4) Распознать продукты
     let results: { class: string; confidence: number }[]
     try {
         results = await recognizeProducts(buffer)
@@ -51,31 +58,49 @@ export async function uploadCommand(ctx: MyContext) {
         return ctx.reply(t(ctx, 'upload.recognitionError'))
     }
 
+    // 5) Отфильтровать по confidence ≥ 0.5
     const filtered = results
         .filter(r => r.confidence >= 0.5)
         .map(r => r.class.toLowerCase())
+
     if (filtered.length === 0) {
         return ctx.reply(t(ctx, 'upload.noProductsDetected'))
     }
 
+    // 6) Только те, что есть в каталоге
     const uniqueIds = Array.from(new Set(filtered))
-    const catalog = await prisma.product.findMany({
+    const products = await prisma.product.findMany({
         where: { id: { in: uniqueIds } },
-        select: { id: true },
-    }).then(rows => rows.map(r => r.id))
-    if (!catalog.length) {
+        include: {
+            translations: {
+                where: { language: lang },
+                select: { name: true, emoji: true },
+            },
+        },
+    })
+    if (!products.length) {
         return ctx.reply(t(ctx, 'upload.noneInCatalog'))
     }
 
-    const text = t(ctx, 'upload.foundCatalog', { count: catalog.length }) +
+    // 7) Построить текст с нормальными именами
+    const lines = products.map(p => {
+        const tr = p.translations[0]
+        const name = tr?.name ?? p.id
+        const emoji = tr?.emoji ?? ''
+        return `• ${emoji} ${name}`
+    })
+    const text =
+        t(ctx, 'upload.foundCatalog', { count: products.length }) +
         '\n' +
-        catalog.map(id => `• \`${id}\``).join('\n')
+        lines.join('\n')
 
+    // 8) Inline-клавиатура
     const kb = new InlineKeyboard()
         .text(t(ctx, 'keyboard.addFound'), 'apply_add')
         .row()
         .text(t(ctx, 'keyboard.replaceList'), 'apply_replace')
 
+    // 9) Отправить и закешировать по message_id
     const sent = await ctx.reply(text, {
         parse_mode: 'Markdown',
         reply_markup: kb,
@@ -83,10 +108,10 @@ export async function uploadCommand(ctx: MyContext) {
 
     recognizedCache.set(sent.message_id, {
         ts: Date.now(),
-        list: catalog,
+        list: products.map(p => p.id),
     })
 
-    // очистка устаревших
+    // Удалить устаревшие записи
     for (const [msgId, entry] of recognizedCache) {
         if (Date.now() - entry.ts > CACHE_TTL) {
             recognizedCache.delete(msgId)
