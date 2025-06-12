@@ -1,23 +1,29 @@
-import axios from 'axios';
+// src/services/imageService.ts
 
-const MODEL_URL = process.env.ROBOFLOW_MODEL_URL!;
-const API_KEY   = process.env.ROBOFLOW_API_KEY!;
+import axios from 'axios'
+import FormData from 'form-data'
 
-export interface RecognitionResult {
-    class: string;
-    confidence: number;
-}
+export async function recognizeProducts(buffer: Buffer) {
+    // теперь обращаемся по хосту, где реально доступен FastAPI
+    const url = process.env.FRIDGE_DETECTOR_URL ?? 'http://localhost:8000/detect'
 
-export async function recognizeProducts(buffer: Buffer): Promise<RecognitionResult[]> {
-    const base64 = buffer.toString('base64');
-    const resp = await axios.post(
-        MODEL_URL,
-        base64,
-        {
-            params: { api_key: API_KEY },
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            timeout: 60_000,       // ⏱ таймаут 60 секунд
-        }
-    );
-    return resp.data.predictions as RecognitionResult[];
+    // собираем multipart/form-data
+    const form = new FormData()
+    form.append('file', buffer, {
+        filename: 'photo.jpg',
+        contentType: 'image/jpeg',
+    })
+
+    // для крупных изображений нужно снять лимиты по размеру тела запроса
+    const resp = await axios.post<string[]>(url, form, {
+        headers: {
+            ...form.getHeaders(),
+        },
+        timeout: 60_000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+    })
+
+    // приводим к общему виду: { class, confidence }
+    return resp.data.map(id => ({ class: id, confidence: 1 }))
 }
