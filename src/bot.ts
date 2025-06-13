@@ -43,6 +43,7 @@ import {
     productPromptPageHandler,
     productPromptFinalHandler,
 } from './commands/productPromptActions'
+import {historyCommand} from "./commands/history";
 
 // загружаем переводы
 loadLocales()
@@ -66,6 +67,7 @@ bot.on('message:photo', uploadCommand)
 bot.command('recipes', recipesCommand)
 bot.command('favorites', favoritesCommand)
 bot.command('menu', menu)
+bot.command('history', historyCommand);
 
 // === обработка нажатий основной клавиатуры ===
 bot.on('message:text', async (ctx, next) => {

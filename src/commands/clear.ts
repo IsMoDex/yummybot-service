@@ -2,6 +2,7 @@
 
 import { MyContext } from '../types'
 import { clearUserProducts } from '../database/queries/product'
+import { saveInteraction } from '../database/queries/history'
 import { t } from '../i18n'
 
 export async function clearCommand(ctx: MyContext) {
@@ -9,10 +10,17 @@ export async function clearCommand(ctx: MyContext) {
     if (!telegramId) {
         return ctx.reply(t(ctx, 'clear.errorNoUser'))
     }
+
     const deleted = await clearUserProducts(telegramId)
     if (deleted > 0) {
-        return ctx.reply(t(ctx, 'clear.deleted', { count: deleted }))
+        // сохраняем в историю очистки
+        await saveInteraction(telegramId, 'clear_products', { count: deleted })
+
+        return ctx.reply(
+            t(ctx, 'clear.success', { count: deleted }),
+            { parse_mode: 'Markdown' }
+        )
     } else {
-        return ctx.reply(t(ctx, 'clear.alreadyEmpty'))
+        return ctx.reply(t(ctx, 'clear.empty'))
     }
 }

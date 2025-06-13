@@ -2,6 +2,7 @@
 
 import { MyContext } from '../types'
 import { findUser, createUser } from '../database/queries/user'
+import { saveInteraction } from '../database/queries/history'
 import {
     addProductToUser,
     removeProductFromUser,
@@ -127,38 +128,36 @@ export async function productPromptPageHandler(ctx: MyContext) {
 export async function productPromptFinalHandler(ctx: MyContext) {
     const data = ctx.callbackQuery?.data
     if (!data) return
-
-    // захватываем весь productId, даже с подчёркиваниями
     const m = data.match(/^(add|remove)_(.+)$/)
     if (!m) return
     const action = m[1] as 'add' | 'remove'
-    const productId = m[2]  // теперь 'olive_oil', а не просто 'olive'
+    const productId = m[2]
 
-    const from = ctx.from
-    if (!from) return
+    const from = ctx.from!
     const lang = from.language_code || 'en'
     const telegramId = from.id
 
     const tr = await getTranslationById(productId, lang)
     if (!tr) {
-        return ctx.answerCallbackQuery({
-            text: t(ctx, 'productPrompt.notFound'),
-            show_alert: true,
-        })
+        return ctx.answerCallbackQuery({ text: t(ctx, 'productPrompt.notFound'), show_alert: true })
     }
 
-    const res =
-        action === 'add'
-            ? await addProductToUser(telegramId, productId)
-            : await removeProductFromUser(telegramId, productId)
+    const res = action === 'add'
+        ? await addProductToUser(telegramId, productId)
+        : await removeProductFromUser(telegramId, productId)
 
     if (res.success) {
+        // — здесь логируем действие
+        const histType = action === 'add' ? 'add_product' : 'remove_product'
+        await saveInteraction(telegramId, histType, { productId, name: tr.name })
+
         const key = action === 'add'
             ? 'productPrompt.add.success'
             : 'productPrompt.remove.success'
         await ctx.answerCallbackQuery({
-            text: t(ctx, key, { name: tr.name, emoji: tr.emoji || '' }),
+            text: t(ctx, key, { name: tr.name, emoji: tr.emoji ?? '' })
         })
+
         removeFromLastResults(ctx, productId)
         await updateSimilarKeyboard(ctx)
         if (ctx.session.lastProductsMessage) {

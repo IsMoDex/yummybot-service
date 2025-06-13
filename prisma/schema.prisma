@@ -14,28 +14,30 @@ model User {
   firstName        String?
   languageCode     String?
   createdAt        DateTime          @default(now())
-  userProducts     UserProduct[]     // Продукты пользователя
+  userProducts     UserProduct[] // Продукты пользователя
   favoriteProducts FavoriteProduct[] // Любимые продукты пользователя
-  favoriteRecipes  FavoriteRecipe[]  // Избранные рецепты
-  uploads          ImageUpload[]     // История загрузок
+  favoriteRecipes  FavoriteRecipe[] // Избранные рецепты
+  uploads          ImageUpload[] // История загрузок
+
+  InteractionHistory InteractionHistory[]
 }
 
 model Product {
-  id           String                @id
-  translations ProductTranslation[]   // Локализации названия и эмодзи
+  id           String               @id
+  translations ProductTranslation[] // Локализации названия и эмодзи
   userEntries  UserProduct[]
   inRecipes    RecipeProduct[]
   favByUsers   FavoriteProduct[]
 }
 
 model ProductTranslation {
-  id         Int      @id @default(autoincrement())
-  productId  String
-  language   String   // 'ru', 'en', 'fr' и т.д.
-  name       String
-  emoji      String?
+  id        Int     @id @default(autoincrement())
+  productId String
+  language  String // 'ru', 'en', 'fr' и т.д.
+  name      String
+  emoji     String?
 
-  product    Product  @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 
   @@unique([productId, language])
 }
@@ -46,8 +48,8 @@ model UserProduct {
   productId String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 
   @@unique([userId, productId], name: "userId_productId")
 }
@@ -58,50 +60,50 @@ model FavoriteProduct {
   productId String
   addedAt   DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 
   @@unique([userId, productId])
 }
 
 model Recipe {
-  id               Int                  @id @default(autoincrement())
-  createdAt        DateTime             @default(now())
-  translations     RecipeTranslation[]  // Локализации заголовка, описания и шагов
-  ingredients      RecipeProduct[]
-  favoriteByUsers  FavoriteRecipe[]
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
+  translations    RecipeTranslation[] // Локализации заголовка, описания и шагов
+  ingredients     RecipeProduct[]
+  favoriteByUsers FavoriteRecipe[]
 }
 
 model RecipeTranslation {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   recipeId    Int
   language    String
   title       String
   description String?
   steps       String?
 
-  recipe      Recipe   @relation(fields: [recipeId], references: [id])
+  recipe Recipe @relation(fields: [recipeId], references: [id])
 
   @@unique([recipeId, language])
 }
 
 model RecipeProduct {
-  id        Int     @id @default(autoincrement())
+  id        Int    @id @default(autoincrement())
   recipeId  Int
   productId String
 
-  recipe    Recipe  @relation(fields: [recipeId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  recipe  Recipe  @relation(fields: [recipeId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 }
 
 model FavoriteRecipe {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  recipeId  Int
-  addedAt   DateTime @default(now())
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  recipeId Int
+  addedAt  DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  recipe    Recipe   @relation(fields: [recipeId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  recipe Recipe @relation(fields: [recipeId], references: [id])
 
   @@unique([userId, recipeId])
 }
@@ -112,5 +114,18 @@ model ImageUpload {
   userId    Int
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+/// История взаимодействий
+model InteractionHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String // например: "upload", "add_product", "show_recipe", "save_recipe" и т.д.
+  payload   Json // любые данные: url фото, список продуктов, id рецепта …
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
 }

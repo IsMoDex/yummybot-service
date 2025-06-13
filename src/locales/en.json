@@ -69,5 +69,17 @@
   "pagination.next": "Next ▶️",
   "pagination.header": "Page {current}/{total}",
   "recipes.showRecipe": "Show recipe",
-  "recipes.saveRecipe": "❤️ Save"
+  "recipes.saveRecipe": "❤️ Save",
+  "clear.success": "🗑️ Removed {count} products from your list.",
+  "clear.empty": "Your product list is already empty.",
+  "history.header": "History in the last hour:",
+  "history.errorNoUser": "⚠️ Could not determine user.",
+  "history.noEntries": "No entries in the last hour.",
+  "history.event.add_product":     "Added product",
+  "history.event.remove_product":  "Removed product",
+  "history.event.clear_products":  "Cleared product list",
+  "history.event.upload":          "Uploaded photo",
+  "history.event.show_recipe":     "Viewed recipe",
+  "history.event.save_recipe":     "Saved recipe",
+  "history.event.remove_favorite": "Removed favorite recipe"
 }

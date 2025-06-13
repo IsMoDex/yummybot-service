@@ -7,6 +7,7 @@ import {
     removeFavoriteRecipe,
 } from '../database/queries/recipe'
 import { t } from '../i18n'
+import { saveInteraction } from '../database/queries/history'
 
 export async function showRecipeAction(ctx: MyContext) {
     const data = ctx.callbackQuery?.data
@@ -30,14 +31,15 @@ export async function showRecipeAction(ctx: MyContext) {
 
     const parts = [
         `*${recipe.title}*`,
-        recipe.description ? `${recipe.description}` : '',
+        recipe.description ?? '',
         `*${t(ctx, 'recipe.ingredients')}:*`,
         ingredientsList,
         `*${t(ctx, 'recipe.steps')}:*`,
-        recipe.steps || '',
+        recipe.steps ?? '',
     ].filter(Boolean)
 
     await ctx.reply(parts.join('\n\n'), { parse_mode: 'Markdown' })
+    await saveInteraction(ctx.from!.id, 'show_recipe', { recipeId })
     await ctx.answerCallbackQuery()
 }
 
@@ -52,6 +54,7 @@ export async function saveRecipeAction(ctx: MyContext) {
 
     const res = await saveFavoriteRecipe(telegramId, recipeId)
     if (res.success) {
+        await saveInteraction(telegramId, 'save_recipe', { recipeId })
         await ctx.answerCallbackQuery({ text: t(ctx, 'recipe.saved') })
     } else if (res.reason === 'already_exists') {
         await ctx.answerCallbackQuery({ text: t(ctx, 'recipe.alreadySaved') })
@@ -74,6 +77,7 @@ export async function deleteRecipeAction(ctx: MyContext) {
 
     const res = await removeFavoriteRecipe(telegramId, recipeId)
     if (res.success) {
+        await saveInteraction(telegramId, 'remove_favorite', { recipeId })
         await ctx.deleteMessage()
         await ctx.answerCallbackQuery({ text: t(ctx, 'recipe.deleted') })
     } else {
