@@ -13,7 +13,7 @@ export async function runProductsAndTranslations(prisma: PrismaClient) {
         'mushroom','mushrooms','olive','olives','parsley','peach','peppers','potatoes',
         'red_bell_pepper','red_grapes','red_onion','salami','sauce','sausage','shrimp',
         'spinach','spring_onion','strawberries','sugar','sweet_potato','tomato_paste',
-        'tomatoes','yellow_bell_pepper','yoghurt'
+        'tomatoes','yellow_bell_pepper','yoghurt', 'cucumber'
     ]
 
     // ② Русские переводы для обязательных
@@ -44,7 +44,7 @@ export async function runProductsAndTranslations(prisma: PrismaClient) {
         spinach: 'Шпинат', spring_onion: 'Зелёный лук', strawberries: 'Клубника',
         sugar: 'Сахар', sweet_potato: 'Сладкий картофель',
         tomato_paste: 'Томатная паста', tomatoes: 'Помидоры',
-        yellow_bell_pepper: 'Жёлтый перец', yoghurt: 'Йогурт',
+        yellow_bell_pepper: 'Жёлтый перец', yoghurt: 'Йогурт', cucumber: 'Огурец'
     }
 
     // ③ 150 уникальных дополнительных продуктов
@@ -122,7 +122,7 @@ export async function runProductsAndTranslations(prisma: PrismaClient) {
         ['smoked_sausage','🌭'], ['salsa','🥣'], ['smoothie','🍹'], ['protein_powder','💪'], ['matcha_powder','🍵'],
         ['energy_drink','🥤'], ['sparkling_water','🥤'], ['mineral_water_sparkling','💧'], ['almond_butter','🥜'],
         ['sunflower_butter','🥜'], ['blueberry_jam','🍓'], ['fig_preserves','❔'], ['pepperoni','🌭'],
-        ['truffle_oil','❔'], ['port','🍷'], ['sherry','🍷'], ['cider','🍺'], ['kombucha','🍹'],
+        ['truffle_oil','❔'], ['port','🍷'], ['sherry','🍷'], ['cider','🍺'], ['kombucha','🍹'], ['cucumber', '🥒']
     ])
 
     // ⑥ UPSERT продуктов
