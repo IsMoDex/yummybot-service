@@ -1,41 +1,41 @@
-# Stage 1: сборка
+# Dockerfile for YummyBot (multi-stage build with locales)
+
+# Stage 1: build
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# 1) Устанавливаем зависимости
+# 1) Install all dependencies (dev + prod)
 COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm \
  && pnpm install --frozen-lockfile
 
-# 2) Генерируем Prisma‐клиент
+# 2) Generate Prisma Client
 COPY prisma ./prisma
 RUN pnpm prisma generate
 
-# 3) Копируем и компилируем TS-код
+# 3) Compile TypeScript to JavaScript
 COPY tsconfig.json tsconfig.seed.json ./
 COPY src ./src
 RUN pnpm run build
 
-# Stage 2: рантайм
+# Stage 2: runtime
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
-# 4) Устанавливаем только production-зависимости
-COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
+# 4) Install pnpm and production dependencies
+COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm \
  && pnpm install --prod --frozen-lockfile
 
-# 5) Копируем результат компиляции и ресурсы
-COPY --from=builder /app/dist ./dist
-# Критично: кладём ваши JSON-локали рядом с JS-файлами
-COPY --from=builder /app/src/locales ./dist/locales
-
-# 6) Копируем Prisma-папку, чтобы client мог подгрузить схему при старте
-COPY --from=builder /app/prisma ./prisma
+# 5) Copy Prisma schema & regenerate client in runtime
+COPY prisma ./prisma
 RUN pnpm prisma generate
 
-# 7) Опционально: копируем .env, если вы не монтируете его извне
-# COPY .env .env
+# 6) Copy compiled code
+COPY --from=builder /app/dist ./dist
 
-# 8) Точка входа
-CMD ["node", "dist/bot.js"]
+# 7) Copy JSON locales into dist
+COPY --from=builder /app/src/locales ./dist/locales
+
+# 8) Entrypoint: run migrations, seed DB, then start the bot
+ENTRYPOINT ["sh", "-c", "pnpm prisma migrate deploy && pnpm prisma db seed && node dist/bot.js"]
