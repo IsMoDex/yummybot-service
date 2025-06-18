@@ -1,41 +1,42 @@
-# Dockerfile for YummyBot (multi-stage build with locales)
-
-# Stage 1: build
+# Stage 1: сборка
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# 1) Install all dependencies (dev + prod)
+# 1) Устанавливаем все зависимости (dev + prod)
 COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm \
  && pnpm install --frozen-lockfile
 
-# 2) Generate Prisma Client
+# 2) Генерируем Prisma Client
 COPY prisma ./prisma
 RUN pnpm prisma generate
 
-# 3) Compile TypeScript to JavaScript
+# 3) Компилируем TypeScript в JavaScript
 COPY tsconfig.json tsconfig.seed.json ./
 COPY src ./src
 RUN pnpm run build
 
-# Stage 2: runtime
-FROM node:20-alpine AS runtime
+# Stage 2: рантайм
+FROM node:20-alpine
 WORKDIR /app
 
-# 4) Install pnpm and production dependencies
+# 4) Ставим pnpm и prod-зависимости
 COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm \
  && pnpm install --prod --frozen-lockfile
 
-# 5) Copy Prisma schema & regenerate client in runtime
+# 5) Копируем схему Prisma
 COPY prisma ./prisma
+# Клиент регенерируем заново, чтобы миграции в entrypoint могли работать
 RUN pnpm prisma generate
 
-# 6) Copy compiled code
+# 6) Копируем собранный код и локали
 COPY --from=builder /app/dist ./dist
-
-# 7) Copy JSON locales into dist
 COPY --from=builder /app/src/locales ./dist/locales
 
-# 8) Entrypoint: run migrations, seed DB, then start the bot
-ENTRYPOINT ["sh", "-c", "pnpm prisma migrate deploy && pnpm prisma db seed && node dist/bot.js"]
+# 7) Точка входа: миграции, сиды и запуск бота
+ENTRYPOINT ["sh", "-c", "\
+  pnpm prisma migrate deploy && \
+  pnpm prisma db seed && \
+  node dist/bot.js \
+"]
